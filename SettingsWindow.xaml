@@ -1,0 +1,54 @@
+<Window x:Class="PhotoMap.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Impostazioni" Icon="Assets/app.ico" Width="440" SizeToContent="Height"
+        ResizeMode="NoResize" WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource Ground}" Foreground="{DynamicResource Text}"
+        FontFamily="{DynamicResource FontBody}" FontSize="{DynamicResource BaseSize}" UseLayoutRounding="True">
+    <Window.Resources>
+        <Style x:Key="Swatch" TargetType="Button">
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Margin" Value="0,0,6,6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="2" CornerRadius="16" Padding="3" Background="Transparent">
+                            <Ellipse Fill="{TemplateBinding Background}"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+    <StackPanel Margin="28,26,28,24">
+        <TextBlock Text="Segnaposti" FontSize="{DynamicResource SizeH2}" FontFamily="{DynamicResource FontHead}" FontWeight="SemiBold"/>
+
+        <TextBlock Text="Dimensione" FontWeight="Medium" Margin="0,18,0,0"/>
+        <Grid Margin="0,6,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="56"/>
+            </Grid.ColumnDefinitions>
+            <Slider x:Name="SizeSlider" Minimum="30" Maximum="80" TickFrequency="2" IsSnapToTickEnabled="True" VerticalAlignment="Center" ValueChanged="Size_Changed"/>
+            <TextBlock x:Name="SizeText" Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+        </Grid>
+
+        <TextBlock Text="Colore dei segnaposti" FontWeight="Medium" Margin="0,22,0,0"/>
+        <TextBlock Text="Gruppi di foto, foto selezionata e aree" FontSize="12" Foreground="{DynamicResource Muted}"/>
+        <WrapPanel x:Name="MarkerSwatches" Margin="0,10,0,0"/>
+        <TextBox x:Name="MarkerHex" Width="110" Height="30" HorizontalAlignment="Left" MaxLength="7" VerticalContentAlignment="Center"
+                 BorderBrush="{DynamicResource Control}" Background="{DynamicResource Surface}" Foreground="{DynamicResource Text}" CaretBrush="{DynamicResource Accent}" TextChanged="MarkerHex_Changed"/>
+
+        <TextBlock Text="Colore delle foto senza posizione" FontWeight="Medium" Margin="0,22,0,0"/>
+        <WrapPanel x:Name="NoGpsSwatches" Margin="0,10,0,0"/>
+        <TextBox x:Name="NoGpsHex" Width="110" Height="30" HorizontalAlignment="Left" MaxLength="7" VerticalContentAlignment="Center"
+                 BorderBrush="{DynamicResource Control}" Background="{DynamicResource Surface}" Foreground="{DynamicResource Text}" CaretBrush="{DynamicResource Accent}" TextChanged="NoGpsHex_Changed"/>
+
+        <Grid Margin="0,28,0,0">
+            <Button Style="{StaticResource OutlineButton}" Content="Ripristina predefiniti" HorizontalAlignment="Left" Click="Reset_Click"/>
+            <Button Style="{StaticResource PrimaryButton}" Content="Chiudi" HorizontalAlignment="Right" IsDefault="True" IsCancel="True" Click="Close_Click"/>
+        </Grid>
+    </StackPanel>
+</Window>

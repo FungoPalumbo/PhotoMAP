@@ -1,0 +1,225 @@
+<Window x:Class="PhotoMap.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        xmlns:m="clr-namespace:PhotoMap.Models"
+        xmlns:local="clr-namespace:PhotoMap"
+        Title="Fotomappa" Icon="Assets/app.ico" Width="1400" Height="880" MinWidth="1200" MinHeight="640"
+        Background="{DynamicResource Ground}" Foreground="{DynamicResource Text}"
+        FontFamily="{DynamicResource FontBody}" FontSize="{DynamicResource BaseSize}"
+        UseLayoutRounding="True" SnapsToDevicePixels="True">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="300"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="400"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Sidebar -->
+        <Border Grid.RowSpan="2" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0">
+            <Grid Margin="20,28,20,20">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <StackPanel Orientation="Horizontal">
+                    <Grid Width="30" Height="30">
+                        <Ellipse Fill="{DynamicResource BrandFill}" Stroke="{DynamicResource BrandStroke}" StrokeThickness="1.5"/>
+                        <Viewbox Width="18" Height="18">
+                            <Path Fill="{DynamicResource BrandGlyph}" Data="M12,2 C8.1,2 5,5.1 5,9 C5,14.25 12,22 12,22 C12,22 19,14.25 19,9 C19,5.1 15.9,2 12,2 Z M12,11.8 A2.8,2.8 0 1 1 12,6.2 A2.8,2.8 0 0 1 12,11.8 Z"/>
+                        </Viewbox>
+                    </Grid>
+                    <TextBlock Text="Fotomappa" FontSize="{DynamicResource SizeBrand}" FontFamily="{DynamicResource FontHead}" FontWeight="SemiBold" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <StackPanel Grid.Row="1" Margin="0,28,0,0">
+                    <Button x:Name="PickButton" Style="{StaticResource PrimaryButton}" Content="Scegli una cartella…" Click="PickFolder_Click"/>
+                    <TextBlock x:Name="FolderText" Text="Nessuna cartella scelta" Foreground="{DynamicResource Muted}" FontSize="12"
+                               Margin="0,10,0,0" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="34"/>
+                    <CheckBox x:Name="SubCheck" Style="{StaticResource Check}" Content="Includi le sottocartelle" IsChecked="True"
+                              Margin="0,14,0,0" Click="SubCheck_Click"/>
+                    <StackPanel x:Name="ProgressPanel" Visibility="Collapsed" Margin="0,16,0,0">
+                        <ProgressBar x:Name="Progress" Style="{StaticResource Thin}" Minimum="0" Maximum="1" Value="0"/>
+                        <Grid Margin="0,8,0,0">
+                            <TextBlock x:Name="ProgressText" FontSize="12" Foreground="{DynamicResource Muted}" VerticalAlignment="Center"/>
+                            <Button x:Name="StopButton" Style="{StaticResource OutlineButton}" Content="Interrompi" Height="28" FontSize="12"
+                                    HorizontalAlignment="Right" Click="Stop_Click"/>
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+
+                <StackPanel Grid.Row="2" Margin="0,28,0,10">
+                    <TextBlock Text="Foto" FontSize="{DynamicResource SizeH2}" FontFamily="{DynamicResource FontHead}" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="StatsText" FontSize="12" Foreground="{DynamicResource Muted}" Margin="0,2,0,0" Text="Le foto della cartella compariranno qui"/>
+                </StackPanel>
+
+                <ListBox x:Name="PhotoList" Grid.Row="3" Background="Transparent" BorderThickness="0"
+                         ItemContainerStyle="{StaticResource PhotoRow}" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.ScrollUnit="Pixel"
+                         SelectionChanged="PhotoList_SelectionChanged">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate DataType="{x:Type m:PhotoItem}">
+                            <Grid Height="44">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="44"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Image Source="{Binding Thumb}" Width="44" Height="44" Stretch="UniformToFill">
+                                    <Image.Clip><RectangleGeometry Rect="0,0,44,44" RadiusX="{DynamicResource ClipR}" RadiusY="{DynamicResource ClipR}"/></Image.Clip>
+                                </Image>
+                                <StackPanel Grid.Column="1" Margin="12,0,8,0" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding FileName}" FontWeight="Medium" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="{Binding Subtitle}" FontSize="12" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+                                <Border Grid.Column="2" Background="{DynamicResource Raised}" CornerRadius="{DynamicResource RadiusBadge}" Padding="8,2" VerticalAlignment="Center"
+                                        Visibility="{Binding NoLocation, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Text="Senza GPS" FontSize="12" Foreground="{DynamicResource BadgeFg}"/>
+                                </Border>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+        </Border>
+
+        <!-- Map header -->
+        <Grid Grid.Column="1" Margin="32,28,16,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Margin="0,0,12,0">
+                <TextBlock Text="Mappa" FontSize="{DynamicResource SizeH1}" FontFamily="{DynamicResource FontHead}" FontWeight="SemiBold"/>
+                <TextBlock x:Name="MapSummary" Text="Scegli una cartella per vedere dove sono state scattate le foto" Foreground="{DynamicResource Muted}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom">
+                <Button x:Name="FitButton" Style="{StaticResource OutlineButton}" Content="Mostra tutte le foto" Click="Fit_Click" IsEnabled="False"/>
+                <Button x:Name="ThemeButton" Style="{StaticResource OutlineButton}" Content="Tema" Margin="8,0,0,0" ToolTip="Cambia tema grafico" Click="Theme_Click"/>
+                <Popup x:Name="ThemePopup" PlacementTarget="{Binding ElementName=ThemeButton}" Placement="Bottom" VerticalOffset="4" StaysOpen="False" AllowsTransparency="True">
+                    <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource OutlineBorder}" BorderThickness="1" CornerRadius="{DynamicResource RadiusBtn}" Padding="4">
+                        <StackPanel x:Name="ThemeList" MinWidth="190"/>
+                    </Border>
+                </Popup>
+                <Button Style="{StaticResource OutlineButton}" Content="Impostazioni" Margin="8,0,0,0" Click="Settings_Click"/>
+                <Button Style="{StaticResource OutlineButton}" Content="?" MinWidth="34" Margin="8,0,0,0" ToolTip="Informazioni su Fotomappa"
+                        AutomationProperties.Name="Informazioni" Click="About_Click"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Map -->
+        <Border Grid.Column="1" Grid.Row="1" Margin="32,0,16,24" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="1">
+            <Grid>
+                <wv2:WebView2 x:Name="Web"/>
+
+                <!-- Photos without GPS data, shown in place of the map -->
+                <Grid x:Name="NoGpsView" Visibility="Collapsed" Background="{DynamicResource Surface}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Grid Margin="24,20,24,12">
+                        <StackPanel>
+                            <TextBlock Text="Foto senza posizione" FontSize="{DynamicResource SizeH2}" FontFamily="{DynamicResource FontHead}" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="NoGpsCountText" FontSize="12" Foreground="{DynamicResource Muted}" Margin="0,2,0,0"/>
+                        </StackPanel>
+                        <Button Style="{StaticResource OutlineButton}" Content="Torna alla mappa" HorizontalAlignment="Right" VerticalAlignment="Center" Click="BackToMap_Click"/>
+                    </Grid>
+                    <ListBox x:Name="NoGpsList" Grid.Row="1" Background="Transparent" BorderThickness="0" Margin="16,0,0,12"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.ScrollUnit="Pixel"
+                             SizeChanged="NoGpsList_SizeChanged">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Focusable" Value="False"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem"><ContentPresenter/></ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate DataType="{x:Type local:GridRow}">
+                                <ItemsControl ItemsSource="{Binding Items}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type m:PhotoItem}">
+                                            <Border Width="128" Margin="4" Padding="4" CornerRadius="{DynamicResource RadiusCard}" Cursor="Hand" ToolTip="{Binding FileName}"
+                                                    MouseLeftButtonDown="Cell_MouseDown">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Background" Value="Transparent"/>
+                                                        <Style.Triggers>
+                                                            <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{DynamicResource Raised}"/></Trigger>
+                                                            <DataTrigger Binding="{Binding IsSelected}" Value="True"><Setter Property="Background" Value="{DynamicResource AccentSoft}"/></DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <StackPanel>
+                                                    <Image Source="{Binding Thumb}" Width="120" Height="120" Stretch="UniformToFill">
+                                                        <Image.Clip><RectangleGeometry Rect="0,0,120,120" RadiusX="{DynamicResource ClipR}" RadiusY="{DynamicResource ClipR}"/></Image.Clip>
+                                                    </Image>
+                                                    <TextBlock Text="{Binding FileName}" FontSize="12" Margin="2,6,2,0" TextTrimming="CharacterEllipsis"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- Photo panel -->
+        <TextBlock Grid.Column="2" Text="Foto selezionata" FontSize="{DynamicResource SizeH3}" FontFamily="{DynamicResource FontHead}" FontWeight="SemiBold" VerticalAlignment="Bottom" Margin="8,0,24,16"/>
+        <Border Grid.Column="2" Grid.Row="1" Margin="8,0,24,24" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="{DynamicResource RadiusCard}">
+            <Grid>
+                <StackPanel x:Name="EmptyState" VerticalAlignment="Center" Margin="32">
+                    <TextBlock Text="Nessuna foto selezionata" FontSize="{DynamicResource SizeH2}" FontFamily="{DynamicResource FontHead}" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Tocca un segnaposto sulla mappa o scegli una foto dall'elenco: qui la vedrai a grandezza intera, con luogo e dati di scatto."
+                               TextWrapping="Wrap" TextAlignment="Center" Foreground="{DynamicResource Muted}" Margin="0,8,0,0"/>
+                </StackPanel>
+
+                <Grid x:Name="DetailState" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Border Background="{DynamicResource Raised}" CornerRadius="{DynamicResource RadiusTop}">
+                        <Image x:Name="BigImage" Margin="10" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                    </Border>
+                    <StackPanel Grid.Row="1" Margin="20,18,20,20">
+                        <TextBlock x:Name="NameText" FontSize="{DynamicResource SizeH2}" FontFamily="{DynamicResource FontHead}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock x:Name="DateText" Foreground="{DynamicResource Muted}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock x:Name="LblPosition" Text="Posizione" FontFamily="{DynamicResource FontLabel}" FontSize="{DynamicResource LabelSize}" Foreground="{DynamicResource Muted}" Margin="0,16,0,0"/>
+                        <TextBlock x:Name="CoordText"/>
+                        <TextBlock x:Name="LblCamera" Text="Fotocamera" FontFamily="{DynamicResource FontLabel}" FontSize="{DynamicResource LabelSize}" Foreground="{DynamicResource Muted}" Margin="0,12,0,0"/>
+                        <TextBlock x:Name="CameraText" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock x:Name="LblExposure" Text="Esposizione" FontFamily="{DynamicResource FontLabel}" FontSize="{DynamicResource LabelSize}" Foreground="{DynamicResource Muted}" Margin="0,12,0,0"/>
+                        <TextBlock x:Name="ExposureText" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock x:Name="LblFolder" Text="Cartella" FontFamily="{DynamicResource FontLabel}" FontSize="{DynamicResource LabelSize}" Foreground="{DynamicResource Muted}" Margin="0,12,0,0"/>
+                        <TextBlock x:Name="FolderInfoText" TextTrimming="CharacterEllipsis"/>
+                        <Button x:Name="OpenButton" Style="{StaticResource PrimaryButton}" Content="Apri con il visualizzatore" Margin="0,18,0,0" Click="Open_Click"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                            <Button x:Name="RevealButton" Style="{StaticResource OutlineButton}" Content="Mostra nella cartella" Click="Reveal_Click"/>
+                            <Button x:Name="CenterButton" Style="{StaticResource OutlineButton}" Content="Centra sulla mappa" Margin="8,0,0,0" Click="Center_Click"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
+

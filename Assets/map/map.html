@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mappa</title>
+<link rel="stylesheet" href="leaflet.css">
+<link rel="stylesheet" href="MarkerCluster.css">
+<style>
+  /* defaults = standard theme; every theme variable is overwritten by applyTheme() */
+  :root {
+    --accent: #b8336a;
+    --nogps: #2563eb;
+    --pin: 46px;
+    --cl: 44px;
+    --font: "DM Sans", "Segoe UI Variable Text", "Segoe UI", sans-serif;
+    --label-font: "DM Sans", "Segoe UI Variable Text", "Segoe UI", sans-serif;
+    --map-bg: #eceeef; --text: #111827; --muted: #5f6672;
+    --frame: #fff; --on-accent: #fff; --nogps-fg: #fff;
+    --cl-weight: 600; --nums: tabular-nums;
+    --pin-radius: 6px; --pin-bg: #fff; --pin-filter: none;
+    --tile-filter: none; --fx: none;
+    --panel-bg: #fff; --panel-border: transparent; --panel-radius: 6px; --panel-size: 14px;
+    --zoom-bg: #fff; --zoom-fg: #111827; --zoom-hover: #f4f4f4; --zoom-border: #d1d5db; --zoom-radius: 4px;
+    --attr-bg: rgba(255,255,255,.8); --attr-fg: #333; --attr-link: #0078a8;
+    --glow: none; --glow-nogps: none;
+  }
+  html, body, #map { height: 100%; margin: 0; }
+  body { background: var(--map-bg); font-family: var(--font); color: var(--text); }
+  .leaflet-container { font-family: inherit; background: var(--map-bg); }
+  .leaflet-tile-pane { filter: var(--tile-filter); }
+  /* theme overlay: vignette / scanlines */
+  #fx { position: absolute; inset: 0; z-index: 900; pointer-events: none; background: var(--fx); }
+
+  .pin { width: var(--pin); height: var(--pin); position: relative; transition: transform .14s ease-out; transform-origin: 50% 100%; }
+  .pin img { display: block; width: var(--pin); height: var(--pin); box-sizing: border-box; object-fit: cover; background: var(--pin-bg);
+             border: 3px solid var(--frame); border-radius: var(--pin-radius); filter: var(--pin-filter); }
+  .pin::after { content: ""; position: absolute; left: 50%; bottom: -7px; margin-left: -7px; border: 7px solid transparent; border-top-color: var(--frame); border-bottom-width: 0; }
+  .pin:hover { transform: scale(1.12); }
+  .pin.sel { transform: scale(1.3); }
+  .pin.sel img { border-color: var(--accent); box-shadow: var(--glow); }
+  .pin.sel::after { border-top-color: var(--accent); }
+
+  .cl { width: var(--cl); height: var(--cl); box-sizing: border-box; border-radius: 50%; background: var(--accent); border: 3px solid var(--frame); color: var(--on-accent);
+        display: flex; align-items: center; justify-content: center; font-family: var(--label-font); font-weight: var(--cl-weight); font-size: 14px;
+        font-variant-numeric: var(--nums); box-shadow: var(--glow); }
+
+  .leaflet-bar { border: 1px solid var(--zoom-border); box-shadow: none; border-radius: var(--zoom-radius); }
+  .leaflet-bar a { background-color: var(--zoom-bg); color: var(--zoom-fg); border-bottom-color: var(--zoom-border); }
+  .leaflet-bar a:hover, .leaflet-bar a:focus { background-color: var(--zoom-hover); color: var(--zoom-fg); }
+  .leaflet-bar a:first-child { border-top-left-radius: var(--zoom-radius); border-top-right-radius: var(--zoom-radius); }
+  .leaflet-bar a:last-child { border-bottom-left-radius: var(--zoom-radius); border-bottom-right-radius: var(--zoom-radius); border-bottom: none; }
+  .leaflet-control-attribution { font-size: 11px; background: var(--attr-bg) !important; color: var(--attr-fg); }
+  .leaflet-control-attribution a { color: var(--attr-link); }
+
+  .nogps { display: none; align-items: center; justify-content: center; width: var(--cl); height: var(--cl); box-sizing: border-box; padding: 0; margin: 0;
+           border-radius: 50%; background: var(--nogps); border: 3px solid var(--frame); color: var(--nogps-fg); cursor: pointer; box-shadow: var(--glow-nogps);
+           font-family: var(--label-font); font-weight: var(--cl-weight); font-size: 14px; font-variant-numeric: var(--nums); }
+  .nogps:hover { filter: brightness(.88); }
+  #msg { position: absolute; inset: 0; z-index: 1000; display: none; align-items: center; justify-content: center; pointer-events: none; }
+  #msg p { margin: 0; padding: 12px 18px; background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: var(--panel-radius);
+           font-size: var(--panel-size); color: var(--text); max-width: 360px; text-align: center; line-height: 1.45; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="fx"></div>
+<div id="msg"><p id="msgText"></p></div>
+<script src="leaflet.js"></script>
+<script src="leaflet.markercluster.js"></script>
+<script>
+  const map = L.map('map', { zoomControl: false, worldCopyJump: true, minZoom: 2 }).setView([42.5, 12.5], 5);
+  L.control.zoom({ position: 'bottomright' }).addTo(map);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  }).addTo(map);
+
+  let pinSize = 46, clSize = 44, accentColor = '#b8336a';
+
+  const cluster = L.markerClusterGroup({
+    showCoverageOnHover: false,
+    maxClusterRadius: 58,
+    spiderfyOnMaxZoom: true,
+    iconCreateFunction: c => L.divIcon({
+      html: '<div class="cl">' + c.getChildCount() + '</div>',
+      className: '', iconSize: [clSize, clSize]
+    })
+  });
+  map.addLayer(cluster);
+
+  // Area covered by the photos of each cluster: a circle around the cluster marker,
+  // centred on it and as large as the farthest photo it groups.
+  map.createPane('areas').style.zIndex = 350;
+  const areas = L.layerGroup().addTo(map);
+  let areaTimer = null;
+
+  function drawAreas() {
+    areas.clearLayers();
+    cluster._featureGroup.eachLayer(l => {
+      if (!(l instanceof L.MarkerCluster)) return;
+      const c = l.getLatLng();
+      let r = 0;
+      for (const m of l.getAllChildMarkers()) r = Math.max(r, c.distanceTo(m.getLatLng()));
+      if (r < 1) return;
+      L.circle(c, {
+        pane: 'areas', radius: r, interactive: false,
+        color: accentColor, weight: 1.5, dashArray: '5 5', opacity: 0.7,
+        fillColor: accentColor, fillOpacity: 0.08
+      }).addTo(areas);
+    });
+  }
+  function scheduleAreas() {
+    clearTimeout(areaTimer);
+    areaTimer = setTimeout(drawAreas, 120);
+  }
+  cluster.on('animationend', scheduleAreas);
+  map.on('zoomend moveend', () => setTimeout(scheduleAreas, 350));
+
+  const markers = new Map();   // id -> { marker, thumb }
+  let selectedId = null;
+
+  function makeIcon(thumb, selected) {
+    return L.divIcon({
+      html: '<div class="pin' + (selected ? ' sel' : '') + '"><img alt="" src="' + thumb + '"></div>',
+      className: '', iconSize: [pinSize, pinSize], iconAnchor: [pinSize / 2, pinSize + 7]
+    });
+  }
+
+  // Blue pin, top left: stands for every photo without GPS data. Each click shows the next one.
+  const noGps = L.control({ position: 'topleft' });
+  noGps.onAdd = () => {
+    const el = L.DomUtil.create('button', 'nogps');
+    el.type = 'button';
+    el.style.display = 'none';
+    el.innerHTML = '<span id="nogpsCount"></span>';
+    L.DomEvent.disableClickPropagation(el);
+    el.addEventListener('click', () => post('nogps'));
+    return el;
+  };
+  noGps.addTo(map);
+
+  function setNoGps(n) {
+    const el = noGps.getContainer();
+    el.style.display = n > 0 ? 'flex' : 'none';
+    document.getElementById('nogpsCount').textContent = n;
+    el.title = n + (n === 1 ? ' foto senza posizione' : ' foto senza posizione') + ' · clic per vederle';
+    el.setAttribute('aria-label', el.title);
+  }
+
+  // Theme: css variables chosen by the host application.
+  function applyTheme(vars) {
+    const st = document.documentElement.style;
+    for (const k in vars) st.setProperty(k, vars[k]);
+  }
+
+  // Marker size and colours, chosen in the settings window.
+  function applyStyle(size, color, noGpsColor) {
+    pinSize = size;
+    clSize = Math.round(size * 0.96);
+    accentColor = color;
+    const st = document.documentElement.style;
+    st.setProperty('--pin', size + 'px');
+    st.setProperty('--cl', clSize + 'px');
+    st.setProperty('--accent', color);
+    st.setProperty('--nogps', noGpsColor);
+    markers.forEach((o, id) => o.marker.setIcon(makeIcon(o.thumb, id === selectedId)));
+    cluster.refreshClusters();
+    scheduleAreas();
+  }
+
+  function post(text) {
+    if (window.chrome && window.chrome.webview) window.chrome.webview.postMessage(text);
+  }
+
+  function setMessage(text) {
+    const el = document.getElementById('msg');
+    if (!text) { el.style.display = 'none'; return; }
+    document.getElementById('msgText').textContent = text;
+    el.style.display = 'flex';
+  }
+
+  function clearPhotos() {
+    cluster.clearLayers();
+    areas.clearLayers();
+    markers.clear();
+    selectedId = null;
+  }
+
+  function addPhotos(list) {
+    const layers = list.map(p => {
+      const m = L.marker([p.lat, p.lng], { icon: makeIcon(p.t, false), riseOnHover: true });
+      m.on('click', () => { selectPhoto(p.id, false); post('select:' + p.id); });
+      markers.set(p.id, { marker: m, thumb: p.t });
+      return m;
+    });
+    cluster.addLayers(layers);
+    scheduleAreas();
+  }
+
+  function fitAll() {
+    if (!markers.size) return;
+    map.fitBounds(cluster.getBounds().pad(0.15), { maxZoom: 15, animate: true });
+  }
+
+  function selectPhoto(id, pan) {
+    if (selectedId !== null && markers.has(selectedId)) {
+      const o = markers.get(selectedId);
+      o.marker.setIcon(makeIcon(o.thumb, false));
+      o.marker.setZIndexOffset(0);
+    }
+    selectedId = null;
+    const cur = markers.get(id);
+    if (!cur) return;
+    selectedId = id;
+    cur.marker.setIcon(makeIcon(cur.thumb, true));
+    cur.marker.setZIndexOffset(1000);
+    if (pan) {
+      const target = cur.marker.getLatLng();
+      cluster.zoomToShowLayer(cur.marker, () => map.panTo(target, { animate: true }));
+    }
+  }
+</script>
+</body>
+</html>
+
